@@ -51,7 +51,22 @@ class DeepgramTranscriber(BaseTranscriber):
                 "Deepgram connection died, restarting, num_restarts: %s", restarts
             )
 
+    def mute(self):
+        self.logger.debug("Muting DeepgramTranscriber")
+        super().mute()
+
+    def unmute(self):
+        self.logger.debug("Unmuting DeepgramTranscriber")
+        super().unmute()
+
+
     def send_audio(self, chunk):
+        if self.is_muted:
+            self.logger.debug("Transcriber is muted, not sending audio. {} {}".format(self.audio_queue.qsize(), self.audio_queue.empty()))
+            while not self.audio_queue.empty():
+                _ = self.audio_queue.get_nowait()
+            return
+
         if (
             self.transcriber_config.downsampling
             and self.transcriber_config.audio_encoding == AudioEncoding.LINEAR16
@@ -65,6 +80,7 @@ class DeepgramTranscriber(BaseTranscriber):
                 self.transcriber_config.sampling_rate,
                 None,
             )
+        self.logger.debug("Adding audio chunk to queue")
         self.audio_queue.put_nowait(chunk)
 
     def terminate(self):
@@ -156,10 +172,15 @@ class DeepgramTranscriber(BaseTranscriber):
 
             async def sender(ws: WebSocketClientProtocol):  # sends audio to websocket
                 while not self._ended:
+                    if self.is_muted:
+                        continue
+
                     try:
                         data = await asyncio.wait_for(self.audio_queue.get(), 5)
                     except asyncio.exceptions.TimeoutError:
                         break
+
+                    self.logger.debug("Sending audio to Deepgram over socket. Data length: {}".format(len(data)))
                     await ws.send(data)
                 self.logger.debug("Terminating Deepgram transcriber sender")
 

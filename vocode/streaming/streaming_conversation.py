@@ -52,6 +52,7 @@ class StreamingConversation:
         transcriber: BaseTranscriber,
         agent: BaseAgent,
         synthesizer: BaseSynthesizer,
+        mute_mic_during_agent_response: bool = False,
         conversation_id: str = None,
         per_chunk_allowance_seconds: int = PER_CHUNK_ALLOWANCE_SECONDS,
         events_manager: Optional[EventsManager] = None,
@@ -71,6 +72,7 @@ class StreamingConversation:
             target=create_loop_in_thread,
             args=(self.synthesizer_event_loop,),
         )
+        self.mute_mic_during_agent_response = mute_mic_during_agent_response
         self.events_manager = events_manager or EventsManager()
         self.events_task = None
         self.per_chunk_allowance_seconds = per_chunk_allowance_seconds
@@ -212,7 +214,7 @@ class StreamingConversation:
                     stop_event,
                     seconds_per_chunk,
                 )
-                self.logger.debug("Message sent: {}".format(message_sent))
+                self.logger.debug("Done sending message to speaker: {}".format(message_sent))
                 response_buffer = f"{response_buffer} {message_sent}"
                 if cut_off:
                     speech_cut_off.set()
@@ -235,6 +237,7 @@ class StreamingConversation:
                 messages_generated += 1
                 if messages_generated == 1:
                     if wait_for_filler_audio:
+                        self.logger.debug("Waiting for filler audio to finish {}".format(should_allow_human_to_cut_off_bot))
                         self.interrupt_all_synthesis()
                         self.wait_for_filler_audio_to_finish()
                 if speech_cut_off.is_set():
@@ -246,6 +249,7 @@ class StreamingConversation:
         if messages_generated == 0:
             self.logger.debug("Agent generated no messages")
             if wait_for_filler_audio:
+                self.logger.debug("Waiting for filler audio {}".format(should_allow_human_to_cut_off_bot))
                 self.interrupt_all_synthesis()
         messages_done.set()
 
@@ -269,7 +273,8 @@ class StreamingConversation:
     ) -> Tuple[str, bool]:
         self.is_current_synthesis_interruptable = should_allow_human_to_cut_off_bot
         stop_event = self.enqueue_stop_event()
-        self.logger.debug("Synthesizing speech for message")
+        self.logger.debug("Synthesizing speech for message | %s", message.text)
+        self.logger.debug("Is interruptable? %s", should_allow_human_to_cut_off_bot)
         seconds_per_chunk = TEXT_TO_SPEECH_CHUNK_SIZE_SECONDS
         chunk_size = (
             get_chunk_size_per_second(
@@ -287,7 +292,6 @@ class StreamingConversation:
             stop_event,
             seconds_per_chunk,
         )
-        self.logger.debug("Message sent: {}".format(message_sent))
         if cut_off:
             self.agent.update_last_bot_message_on_cut_off(message_sent)
         self.transcript.add_bot_message(
@@ -309,6 +313,11 @@ class StreamingConversation:
         seconds_per_chunk: int,
         is_filler_audio: bool = False,
     ):
+        self.logger.debug("Sending speech to output")
+        if self.mute_mic_during_agent_response:
+            self.logger.debug("Muting mic during agent response")
+            self.transcriber.mute()
+
         message_sent = message
         cut_off = False
         chunk_size = seconds_per_chunk * get_chunk_size_per_second(
@@ -346,8 +355,12 @@ class StreamingConversation:
             )
             self.last_action_timestamp = time.time()
         # clears it off the stop events queue
+        self.logger.debug("Finished sending speech to output")
         if not stop_event.is_set():
             stop_event.set()
+
+        self.logger.debug("Unmuting mic after agent response to: {}".format(message_sent))
+        self.transcriber.unmute()
         return message_sent, cut_off
 
     async def on_transcription_response(self, transcription: Transcription):
@@ -364,7 +377,7 @@ class StreamingConversation:
             # send interrupt
             self.current_transcription_is_interrupt = False
             if self.is_current_synthesis_interruptable:
-                self.logger.debug("sending interrupt")
+                self.logger.debug("sending interrupt {}".format(self.is_current_synthesis_interruptable))
                 self.current_transcription_is_interrupt = self.interrupt_all_synthesis()
             self.logger.debug("Human started speaking")
 

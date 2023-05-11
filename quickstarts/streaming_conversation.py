@@ -54,7 +54,7 @@ logger.setLevel(logging.DEBUG)
 
 async def main():
     microphone_input, speaker_output = create_microphone_input_and_speaker_output(
-        streaming=True, use_default_devices=False
+        streaming=True, use_default_devices=True
     )
 
     conversation = StreamingConversation(
@@ -62,18 +62,20 @@ async def main():
         transcriber=DeepgramTranscriber(
             DeepgramTranscriberConfig.from_input_device(
                 microphone_input, endpointing_config=PunctuationEndpointingConfig()
-            )
+            ),
+            logger=logger,
         ),
         agent=ChatGPTAgent(
             ChatGPTAgentConfig(
                 initial_message=BaseMessage(text="What up"),
                 prompt_preamble="""You are a helpful gen Z AI assistant. You use slang like um, but, and like a LOT. All of your responses are 10 words or less. Be super chill, use slang like
-hella, down,     fire, totally, but like, slay, vibing, queen, go off, bet, sus, simp, cap, big yikes, main character, dank""",
+hella, down,     fire, totally, but like, slay, vibing, queen, go off, bet, sus, simp, cap, big yikes, main character, dank"""
             )
         ),
         synthesizer=AzureSynthesizer(
             AzureSynthesizerConfig.from_output_device(speaker_output)
         ),
+        mute_mic_during_agent_response=True,
         logger=logger,
     )
     await conversation.start()

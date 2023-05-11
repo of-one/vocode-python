@@ -28,6 +28,7 @@ class BaseTranscriber:
     ):
         self.transcriber_config = transcriber_config
         self.on_response: Optional[Callable[[Transcription], Awaitable]] = None
+        self.is_muted = False
 
     def get_transcriber_config(self) -> TranscriberConfig:
         return self.transcriber_config
@@ -46,3 +47,9 @@ class BaseTranscriber:
 
     def terminate(self):
         pass
+
+    def mute(self):
+        self.is_muted = True
+
+    def unmute(self):
+        self.is_muted = False
