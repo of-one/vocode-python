@@ -29,7 +29,7 @@ class ChatGPTAgent(ChatAgent):
     def __init__(
         self,
         agent_config: ChatGPTAgentConfig,
-        logger: logging.Logger = None,
+        logger: Optional[logging.Logger] = None,
         openai_api_key: Optional[str] = None,
     ):
         super().__init__(agent_config=agent_config, logger=logger)
