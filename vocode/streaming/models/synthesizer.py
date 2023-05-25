@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, validator
+from pydantic import validator
 from vocode.streaming.models.client_backend import OutputAudioConfig
 
 from vocode.streaming.output_device.base_output_device import BaseOutputDevice
@@ -9,7 +9,7 @@ from vocode.streaming.telephony.constants import (
     DEFAULT_AUDIO_ENCODING,
     DEFAULT_SAMPLING_RATE,
 )
-from .model import TypedModel
+from .model import BaseModel, TypedModel
 from .audio_encoding import AudioEncoding
 
 
@@ -106,6 +106,7 @@ class ElevenLabsSynthesizerConfig(
     stability: Optional[float]
     similarity_boost: Optional[float]
     optimize_streaming_latency: Optional[int]
+    model_id: Optional[str]
 
     @validator("voice_id")
     def set_name(cls, voice_id):
@@ -119,6 +120,12 @@ class ElevenLabsSynthesizerConfig(
                 "Both stability and similarity_boost must be set or not set."
             )
         return similarity_boost
+    
+    @validator("optimize_streaming_latency")
+    def optimize_streaming_latency_check(cls, optimize_streaming_latency):
+        if optimize_streaming_latency is not None and not (0 <= optimize_streaming_latency <= 4):
+            raise ValueError("optimize_streaming_latency must be between 0 and 4.")
+        return optimize_streaming_latency
 
 
 class RimeSynthesizerConfig(SynthesizerConfig, type=SynthesizerType.RIME.value):

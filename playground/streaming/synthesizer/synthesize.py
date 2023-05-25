@@ -10,11 +10,7 @@ from vocode.streaming.models.synthesizer import (
 )
 from vocode.streaming.output_device.base_output_device import BaseOutputDevice
 from vocode.streaming.output_device.speaker_output import SpeakerOutput
-from vocode.streaming.synthesizer.azure_synthesizer import AzureSynthesizer
-from vocode.streaming.synthesizer.base_synthesizer import BaseSynthesizer
-from vocode.streaming.synthesizer.google_synthesizer import GoogleSynthesizer
-from vocode.streaming.synthesizer.play_ht_synthesizer import PlayHtSynthesizer
-from vocode.streaming.synthesizer.rime_synthesizer import RimeSynthesizer
+from vocode.streaming.synthesizer import *
 from vocode.streaming.utils import get_chunk_size_per_second
 
 
@@ -50,7 +46,7 @@ if __name__ == "__main__":
                 speech_length_seconds = seconds_per_chunk * (
                     len(chunk_result.chunk) / chunk_size
                 )
-                output_device.send_nonblocking(chunk_result.chunk)
+                output_device.consume_nonblocking(chunk_result.chunk)
                 end_time = time.time()
                 await asyncio.sleep(
                     max(

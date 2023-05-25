@@ -23,16 +23,16 @@ class TwilioOutputDevice(BaseOutputDevice):
         )
         self.ws = ws
         self.stream_sid = stream_sid
+        self.active = True
         self.queue: asyncio.Queue[str] = asyncio.Queue()
         self.process_task = asyncio.create_task(self.process())
-        self.active = True
 
     async def process(self):
         while self.active:
             message = await self.queue.get()
             await self.ws.send_text(message)
 
-    def send_nonblocking(self, chunk: bytes):
+    def consume_nonblocking(self, chunk: bytes):
         twilio_message = {
             "event": "media",
             "streamSid": self.stream_sid,
