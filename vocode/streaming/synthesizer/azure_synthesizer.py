@@ -168,7 +168,7 @@ class AzureSynthesizer(BaseSynthesizer[AzureSynthesizerConfig]):
     def create_ssml(
         self, message: str, bot_sentiment: Optional[BotSentiment] = None
     ) -> str:
-        self.logger.debug(f"Creating SSML markup")
+        self.logger.debug(f"Azure: Creating SSML markup")
         ssml_root = ElementTree.fromstring(
             '<speak version="1.0" xmlns="https://www.w3.org/2001/10/synthesis" xml:lang="en-US"></speak>'
         )
@@ -198,7 +198,6 @@ class AzureSynthesizer(BaseSynthesizer[AzureSynthesizerConfig]):
         return speechsdk.AudioDataStream(result)
 
     def ready_synthesizer(self):
-        
         self.logger.debug("Azure: Opening connection to Azure Speech Synthesizer")
         connection = speechsdk.Connection.from_speech_synthesizer(self.synthesizer)
         connection.open(True)
@@ -281,7 +280,7 @@ class AzureSynthesizer(BaseSynthesizer[AzureSynthesizerConfig]):
             )
         else:
             output_generator = chunk_generator(audio_data_stream)
-        
+
         create_speech_end = time.time()
         self.logger.debug(f"Azure: Time to create speech: {create_speech_end - create_speech_start}")
         self.logger.debug(f"Azure: Finished Synthesizing message: {message}")
