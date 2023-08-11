@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 import os
 import re
+import time
 from typing import Any, List, Optional, Tuple
 from xml.etree import ElementTree
 from vocode import getenv
@@ -131,7 +132,7 @@ class AzureSynthesizer(BaseSynthesizer[AzureSynthesizerConfig]):
             if os.path.exists(filler_audio_path):
                 audio_data = open(filler_audio_path, "rb").read()
             else:
-                self.logger.debug(f"Generating filler audio for {filler_phrase.text}")
+                self.logger.debug(f"Azure: Generating filler audio for {filler_phrase.text}")
                 ssml = self.create_ssml(filler_phrase.text)
                 result = await asyncio.get_event_loop().run_in_executor(
                     self.thread_pool_executor, self.synthesizer.speak_ssml, ssml
@@ -167,6 +168,7 @@ class AzureSynthesizer(BaseSynthesizer[AzureSynthesizerConfig]):
     def create_ssml(
         self, message: str, bot_sentiment: Optional[BotSentiment] = None
     ) -> str:
+        self.logger.debug(f"Creating SSML markup")
         ssml_root = ElementTree.fromstring(
             '<speak version="1.0" xmlns="https://www.w3.org/2001/10/synthesis" xml:lang="en-US"></speak>'
         )
@@ -186,15 +188,21 @@ class AzureSynthesizer(BaseSynthesizer[AzureSynthesizerConfig]):
         prosody.set("pitch", f"{self.pitch}%")
         prosody.set("rate", f"{self.rate}%")
         prosody.text = message.strip()
+        self.logger.debug(f"Azure: Created SSML markup")
         return ElementTree.tostring(ssml_root, encoding="unicode")
 
     def synthesize_ssml(self, ssml: str) -> speechsdk.AudioDataStream:
+        self.logger.debug(f"Azure: Synthesizing SSML: {ssml}")
         result = self.synthesizer.start_speaking_ssml_async(ssml).get()
+        self.logger.debug(f"Azure: Synthesized SSML: {ssml}")
         return speechsdk.AudioDataStream(result)
 
     def ready_synthesizer(self):
+        
+        self.logger.debug("Azure: Opening connection to Azure Speech Synthesizer")
         connection = speechsdk.Connection.from_speech_synthesizer(self.synthesizer)
         connection.open(True)
+        self.logger.debug("Azure: Opened connection to Azure Speech Synthesizer")
 
     # given the number of seconds the message was allowed to go until, where did we get in the message?
     def get_message_up_to(
@@ -219,20 +227,15 @@ class AzureSynthesizer(BaseSynthesizer[AzureSynthesizerConfig]):
     ) -> SynthesisResult:
         # offset = int(self.OFFSET_MS * (self.synthesizer_config.sampling_rate / 1000))
         offset = 0
-        self.logger.debug(f"Synthesizing message: {message}")
 
-        # Azure will return no audio for certain strings like "-", "[-", and "!"
-        # which causes the `chunk_generator` below to hang. Return an empty
-        # generator for these cases.
-        if not re.search(r"\w", message.text):
-            return SynthesisResult(
-                self.empty_generator(),
-                lambda _: message.text,
-            )
+        create_speech_start = time.time()
+        self.logger.debug(f"Azure: Synthesizing message: {message}")
 
         async def chunk_generator(
             audio_data_stream: speechsdk.AudioDataStream, chunk_transform=lambda x: x
         ):
+            self.logger.debug(f"Azure: Starting chunk generator")
+            chunk_gen_start = time.time()
             audio_buffer = bytes(chunk_size)
             while not audio_data_stream.can_read_data(chunk_size):
                 await asyncio.sleep(0)
@@ -246,6 +249,7 @@ class AzureSynthesizer(BaseSynthesizer[AzureSynthesizerConfig]):
                 yield SynthesisResult.ChunkResult(
                     chunk_transform(audio_buffer[offset:]), False
                 )
+            self.logger.debug(f"Azure: Entering chunk generator loop")
             while True:
                 filled_size = audio_data_stream.read_data(audio_buffer)
                 if filled_size != chunk_size:
@@ -254,7 +258,10 @@ class AzureSynthesizer(BaseSynthesizer[AzureSynthesizerConfig]):
                     )
                     break
                 yield SynthesisResult.ChunkResult(chunk_transform(audio_buffer), False)
+            chunk_gen_end = time.time()
+            self.logger.debug(f"Azure: Time to generate chunks: {chunk_gen_end - chunk_gen_start}")
 
+        self.logger.debug(f"Azure: Finished chunk generation")
         word_boundary_event_pool = WordBoundaryEventPool()
         self.synthesizer.synthesis_word_boundary.connect(
             lambda event: self.word_boundary_cb(event, word_boundary_event_pool)
@@ -274,7 +281,10 @@ class AzureSynthesizer(BaseSynthesizer[AzureSynthesizerConfig]):
             )
         else:
             output_generator = chunk_generator(audio_data_stream)
-
+        
+        create_speech_end = time.time()
+        self.logger.debug(f"Azure: Time to create speech: {create_speech_end - create_speech_start}")
+        self.logger.debug(f"Azure: Finished Synthesizing message: {message}")
         return SynthesisResult(
             output_generator,
             lambda seconds: self.get_message_up_to(

@@ -10,7 +10,7 @@ from typing import Generator, Optional, Tuple, cast
 import requests
 import logging
 import aiohttp
-
+import time
 
 class RESTfulUserImplementedAgent(RespondAgent[RESTfulUserImplementedAgentConfig]):
     def __init__(
@@ -37,6 +37,7 @@ class RESTfulUserImplementedAgent(RespondAgent[RESTfulUserImplementedAgentConfig
                 payload = RESTfulAgentInput(
                     human_input=human_input, conversation_id=conversation_id
                 ).dict()
+                request_time_start = time.time()
                 async with session.request(
                     config.method,
                     config.url,
@@ -51,8 +52,11 @@ class RESTfulUserImplementedAgent(RespondAgent[RESTfulUserImplementedAgentConfig
                     should_stop = False
                     if output.type == RESTfulAgentOutputType.TEXT:
                         output_response = cast(RESTfulAgentText, output).response
+                        request_time_end = time.time()
+                        self.logger.debug(f"RESTful: Response time: {request_time_end - request_time_start}")
                     elif output.type == RESTfulAgentOutputType.END:
                         should_stop = True
+                        self.logger.debug("RESTful: Received END signal")
                     return output_response, should_stop
         except Exception as e:
             self.logger.error(f"Error in response from RESTful agent: {e}")
