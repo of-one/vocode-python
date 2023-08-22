@@ -256,7 +256,7 @@ class StreamingConversation(Generic[OutputDeviceType]):
                 )
                 self.produce_interruptible_event_nonblocking(
                     (agent_response_message.message, synthesis_result),
-                    is_interruptible=item.is_interruptible,
+                    is_interruptible=False,  #item.is_interruptible,
                 )
             except asyncio.CancelledError:
                 pass
@@ -513,7 +513,7 @@ class StreamingConversation(Generic[OutputDeviceType]):
                     )
                 )
                 message_sent = f"{synthesis_result.get_message_up_to(seconds)}-"
-                cut_off = True
+                cut_off = False
                 break
             if chunk_idx == 0:
                 if started_event:
