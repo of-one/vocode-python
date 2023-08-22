@@ -121,8 +121,7 @@ class DeepgramTranscriber(BaseAsyncTranscriber[DeepgramTranscriberConfig]):
         ):
             extra_params["punctuate"] = "true"
 
-        if self.transcriber_config.endpointing_config.type == EndpointingType.TIME_BASED_DEEPGRAM:
-            extra_params["endpointing"] = int(self.transcriber_config.endpointing_config.time_cutoff_seconds * 1000)
+        extra_params["endpointing"] = int(self.transcriber_config.endpointing_config.time_cutoff_seconds * 1000)
 
         url_params.update(extra_params)
 
