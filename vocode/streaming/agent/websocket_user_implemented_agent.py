@@ -68,16 +68,17 @@ class WebSocketUserImplementedAgent(BaseAgent[WebSocketUserImplementedAgentConfi
         agent_response: AgentResponse
 
         if isinstance(message, WebSocketAgentTextMessage):
+            self.logger.info("Message received from Socket Agent %s", message.data.text)
             agent_response = AgentResponseMessage(
                 message=BaseMessage(text=message.data.text)
             )
         elif isinstance(message, WebSocketAgentStopMessage):
+            self.logger.info("Stop message received from Socket Agent")
             agent_response = AgentResponseStop()
             self.has_ended = True
         else:
             raise Exception("Unknown Socket message type")
 
-        self.logger.info("Putting interruptible agent response event in output queue")
         self.produce_interruptible_agent_response_event_nonblocking(
             agent_response, self.get_agent_config().allow_agent_to_be_cut_off
         )
@@ -92,23 +93,16 @@ class WebSocketUserImplementedAgent(BaseAgent[WebSocketUserImplementedAgentConfi
                 ws: WebSocketClientProtocol,
             ) -> None:  # sends audio to websocket
                 while not self.has_ended:
-                    self.logger.info("Waiting for data from agent request queue")
                     try:
                         input = await self.input_queue.get()
                         payload = input.payload
                         if isinstance(payload, TranscriptionAgentInput):
                             transcription = payload.transcription
-                            self.logger.info(
-                                "Transcription message: %s", transcription.message
-                            )
                             agent_request = WebSocketAgentTextMessage.from_text(
                                 transcription.message,
                                 conversation_id=payload.conversation_id,
                             )
                             agent_request_json = agent_request.json()
-                            self.logger.info(
-                                f"Sending data to web socket agent: {agent_request_json}"
-                            )
                             if isinstance(agent_request, AgentResponseStop):
                                 # In practice, it doesn't make sense for the client to send a text and stop message to the agent service
                                 self.has_ended = True
