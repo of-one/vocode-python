@@ -61,12 +61,12 @@ class WebSocketUserImplementedAgent(BaseAgent[WebSocketUserImplementedAgentConfi
         agent_response: AgentResponse
 
         if isinstance(message, WebSocketAgentTextMessage):
-            self.logger.info("Message received from Socket Agent %s", message.data.text)
+            self.logger.debug("Message received from Socket Agent %s", message.data.text)
             agent_response = AgentResponseMessage(
                 message=BaseMessage(text=message.data.text)
             )
         elif isinstance(message, WebSocketAgentStopMessage):
-            self.logger.info("Stop message received from Socket Agent")
+            self.logger.debug("Stop message received from Socket Agent")
             agent_response = AgentResponseStop()
             self.has_ended = True
         else:
@@ -108,7 +108,7 @@ class WebSocketUserImplementedAgent(BaseAgent[WebSocketUserImplementedAgentConfi
                         )
                         break
 
-                self.logger.info("Terminating web socket agent sender")
+                self.logger.debug("Terminating web socket agent sender")
 
             async def receiver(ws: WebSocketClientProtocol) -> None:
                 while not self.has_ended:

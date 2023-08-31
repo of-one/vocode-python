@@ -119,7 +119,7 @@ class StreamingConversation(Generic[OutputDeviceType]):
         async def process(self, transcription: Transcription):
             self.conversation.mark_last_action_timestamp()
             if transcription.message.strip() == "":
-                self.conversation.logger.info("Ignoring empty transcription")
+                self.conversation.logger.debug("Ignoring empty transcription")
                 return
             if transcription.is_final:
                 self.conversation.logger.debug(
@@ -649,9 +649,11 @@ class StreamingConversation(Generic[OutputDeviceType]):
                     0,
                 )
             )
-            self.logger.debug(
-                "Sent chunk {} with size {}".format(chunk_idx, len(chunk_result.chunk))
-            )
+            if chunk_idx == 0:
+                self.logger.debug(
+                    "Sending first chunk with size {}".format(chunk_idx, len(chunk_result.chunk))
+                )
+
             self.mark_last_action_timestamp()
             chunk_idx += 1
             seconds_spoken += seconds_per_chunk
