@@ -1,25 +1,16 @@
 import asyncio
 import json
 import logging
-from typing import Dict
-from vocode.streaming.transcriber.base_transcriber import Transcription
-from vocode.streaming.utils.worker import (
-    InterruptibleAgentResponseEvent,
-    InterruptibleEvent,
-)
-import websockets
-from websockets.client import (
-    connect,
-    WebSocketClientProtocol,
-)
+from typing import Optional
 
-from typing import Awaitable, Callable, Optional, cast
+import websockets
+from websockets.client import (WebSocketClientProtocol, connect)
+
 from vocode.streaming.agent.base_agent import (
     AgentInput,
     AgentResponse,
     AgentResponseMessage,
     AgentResponseStop,
-    AgentResponseFillerAudio,
     BaseAgent,
     TranscriptionAgentInput,
 )
@@ -29,6 +20,10 @@ from vocode.streaming.models.websocket_agent import (
     WebSocketAgentStopMessage,
     WebSocketAgentTextMessage,
     WebSocketUserImplementedAgentConfig,
+)
+from vocode.streaming.utils.worker import (
+    InterruptibleAgentResponseEvent,
+    InterruptibleEvent,
 )
 
 NUM_RESTARTS = 5
@@ -54,7 +49,7 @@ class WebSocketUserImplementedAgent(BaseAgent[WebSocketUserImplementedAgentConfi
 
     async def _run_loop(self) -> None:
         restarts = 0
-        self.logger.info("Starting Socket Agent")
+        self.logger.debug("Starting Socket Agent")
         while not self.has_ended and restarts < NUM_RESTARTS:
             await self._process()
             restarts += 1
@@ -63,8 +58,6 @@ class WebSocketUserImplementedAgent(BaseAgent[WebSocketUserImplementedAgentConfi
             )
 
     def _handle_incoming_socket_message(self, message: WebSocketAgentMessage) -> None:
-        self.logger.info("Handling incoming message from Socket Agent: %s", message)
-
         agent_response: AgentResponse
 
         if isinstance(message, WebSocketAgentTextMessage):
@@ -85,10 +78,7 @@ class WebSocketUserImplementedAgent(BaseAgent[WebSocketUserImplementedAgentConfi
 
     async def _process(self) -> None:
         socket_url = self.get_agent_config().respond.url
-        self.logger.info("Connecting to web socket agent %s", socket_url)
-
         async with connect(socket_url) as ws:
-
             async def sender(
                 ws: WebSocketClientProtocol,
             ) -> None:  # sends audio to websocket
@@ -118,13 +108,12 @@ class WebSocketUserImplementedAgent(BaseAgent[WebSocketUserImplementedAgentConfi
                         )
                         break
 
-                self.logger.debug("Terminating web socket agent sender")
+                self.logger.info("Terminating web socket agent sender")
 
             async def receiver(ws: WebSocketClientProtocol) -> None:
                 while not self.has_ended:
                     try:
                         msg = await ws.recv()
-                        self.logger.info("Received data from web socket agent")
                         data = json.loads(msg)
                         message = WebSocketAgentMessage.parse_obj(data)
                         self._handle_incoming_socket_message(message)
