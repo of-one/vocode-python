@@ -121,8 +121,6 @@ class DeepgramTranscriber(BaseAsyncTranscriber[DeepgramTranscriberConfig]):
         ):
             extra_params["punctuate"] = "true"
 
-        extra_params["endpointing"] = int(self.transcriber_config.endpointing_config.time_cutoff_seconds * 1000)
-
         url_params.update(extra_params)
         return f"wss://api.deepgram.com/v1/listen?{urlencode(url_params)}"
 
