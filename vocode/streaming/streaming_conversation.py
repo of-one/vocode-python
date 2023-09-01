@@ -651,7 +651,7 @@ class StreamingConversation(Generic[OutputDeviceType]):
             )
             if chunk_idx == 0:
                 self.logger.debug(
-                    "Sending first chunk with size {}".format(chunk_idx, len(chunk_result.chunk))
+                    "Sending first TTS audio chunk with size {}".format(chunk_idx, len(chunk_result.chunk))
                 )
 
             self.mark_last_action_timestamp()
