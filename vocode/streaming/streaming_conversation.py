@@ -119,7 +119,7 @@ class StreamingConversation(Generic[OutputDeviceType]):
         async def process(self, transcription: Transcription):
             self.conversation.mark_last_action_timestamp()
             if transcription.message.strip() == "":
-                self.conversation.logger.info("Ignoring empty transcription")
+                self.conversation.logger.debug("Ignoring empty transcription")
                 return
             if transcription.is_final:
                 self.conversation.logger.debug(
@@ -286,7 +286,7 @@ class StreamingConversation(Generic[OutputDeviceType]):
                     ):
                         await self.conversation.filler_audio_worker.wait_for_filler_audio_to_finish()
 
-                self.conversation.logger.debug("Synthesizing speech for message")
+                self.conversation.logger.debug(f"Synthesizing speech for message: {agent_response_message.message.text}")
                 synthesis_result = await self.conversation.synthesizer.create_speech(
                     agent_response_message.message,
                     self.chunk_size,
@@ -343,7 +343,6 @@ class StreamingConversation(Generic[OutputDeviceType]):
                     conversation_id=self.conversation.id,
                 )
                 item.agent_response_tracker.set()
-                self.conversation.logger.debug("Message sent: {}".format(message_sent))
                 if cut_off:
                     self.conversation.agent.update_last_bot_message_on_cut_off(
                         message_sent
@@ -650,9 +649,11 @@ class StreamingConversation(Generic[OutputDeviceType]):
                     0,
                 )
             )
-            self.logger.debug(
-                "Sent chunk {} with size {}".format(chunk_idx, len(chunk_result.chunk))
-            )
+            if chunk_idx == 0:
+                self.logger.debug(
+                    "Sending first TTS audio chunk with size {}".format(chunk_idx, len(chunk_result.chunk))
+                )
+
             self.mark_last_action_timestamp()
             chunk_idx += 1
             seconds_spoken += seconds_per_chunk
