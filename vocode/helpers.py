@@ -136,7 +136,7 @@ def _create_microphone_input_and_speaker_output(
         logger.info("Using speaker output device: %s", output_device_info["name"])
 
     speaker_output = speaker_class(
-        output_device_info, sampling_rate=speaker_sampling_rate
+        output_device_info, sampling_rate=speaker_sampling_rate, logger=logger
     )
     return microphone_input, speaker_output  # type: ignore
 

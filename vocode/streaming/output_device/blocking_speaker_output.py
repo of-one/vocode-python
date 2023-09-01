@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import queue
 from typing import Optional
 import sounddevice as sd
@@ -17,13 +18,14 @@ class BlockingSpeakerOutput(BaseOutputDevice, ThreadAsyncWorker):
         device_info: dict,
         sampling_rate: Optional[int] = None,
         audio_encoding: AudioEncoding = AudioEncoding.LINEAR16,
+        logger: Optional[logging.Logger] = None,
     ):
         self.device_info = device_info
         sampling_rate = sampling_rate or int(
             self.device_info.get("default_samplerate", self.DEFAULT_SAMPLING_RATE)
         )
         self.input_queue = asyncio.Queue()
-        BaseOutputDevice.__init__(self, sampling_rate, audio_encoding)
+        BaseOutputDevice.__init__(self, sampling_rate, audio_encoding, logger)
         ThreadAsyncWorker.__init__(self, self.input_queue)
         self.stream = sd.OutputStream(
             channels=1,
@@ -42,7 +44,10 @@ class BlockingSpeakerOutput(BaseOutputDevice, ThreadAsyncWorker):
         while not self._ended:
             try:
                 chunk = self.input_janus_queue.sync_q.get(timeout=1)
-                self.stream.write(np.frombuffer(chunk, dtype=np.int16))
+                try:
+                    self.stream.write(np.frombuffer(chunk, dtype=np.int16))
+                except sd.PortAudioError as e:
+                    self.logger.error("PortAudioError: %s", e)
             except queue.Empty:
                 continue
 
